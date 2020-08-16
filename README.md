@@ -18,9 +18,5 @@ Nintendo Switch, you would install MinGW headers, set
 ## Usage
 
 On the host, all you will have to do is run the executable Zig provides in
-`zig-cache/bin`.
-
-For the remote, Zig will generate a static library in `zig-cache/lib` and a
-header in `zig-cache/include`. You should do some manual editing of the header
-to remove re-definitions of Cold Clear types, and use the `coldclear_types.h`
-in this repository if possible, but it's not required.
+`zig-cache/bin`. For the remote, Zig will generate a static library in
+`zig-cache/lib` and a header in `zig-cache/include`.

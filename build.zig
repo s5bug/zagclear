@@ -42,7 +42,7 @@ pub fn build(b: *Builder) void {
 }
 
 fn parse_target_opt(default_target: std.zig.CrossTarget, target: ?[]const u8) std.zig.CrossTarget {
-    if(target) |triple| {
+    if (target) |triple| {
         var diags: std.zig.CrossTarget.ParseOptions.Diagnostics = .{};
         const selected_target = std.zig.CrossTarget.parse(.{
             .arch_os_abi = triple,
