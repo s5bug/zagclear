@@ -1,6 +1,7 @@
 pub const ZagResult = extern enum {
     ZAG_RESULT_SUCCESS,
     ZAG_RESULT_INVALID_SESSION,
+    ZAG_RESULT_OUT_OF_MEMORY,
 };
 
 pub const ZagPiece = extern enum {
@@ -46,10 +47,10 @@ pub const ZagSpawnRule = extern enum {
     ZAG_SPAWN_RULE_ROW_21_AND_FALL,
 };
 
-pub const ZagBotPollStatus = extern enum {
-    ZAG_BOT_POLL_STATUS_MOVE_PROVIDED,
-    ZAG_BOT_POLL_STATUS_WAITING,
-    ZAG_BOT_POLL_STATUS_DEAD,
+pub const ZagSessionPollStatus = extern enum {
+    ZAG_SESSION_POLL_STATUS_MOVE_PROVIDED,
+    ZAG_SESSION_POLL_STATUS_WAITING,
+    ZAG_SESSION_POLL_STATUS_DEAD,
 };
 
 pub const ZagPlanPlacement = extern struct {
@@ -123,25 +124,140 @@ pub const ZagRequestLaunchAsync = extern struct {
 };
 
 pub const ZagResponseLaunchAsync = extern struct {
-    session: u128,
+    session: u64,
 };
 
 pub const ZagRequestLaunchWithBoardAsync = extern struct {
     options: ZagOptions,
     weights: ZagWeights,
-    field: [40][10]bool,
+    field: [400]bool,
     bag_remain: u32,
     hold: ZagPiece,
     b2b: bool,
     combo: u32,
 };
 
-pub const ZagResponseLaunchBoardAsync = extern struct {
-    session: u128,
+pub const ZagResponseLaunchWithBoardAsync = extern struct {
+    session: u64,
 };
 
 pub const ZagRequestDestroyAsync = extern struct {
-    session: u128,
+    session: u64,
 };
 
 pub const ZagResponseDestroyAsync = extern struct {};
+
+pub const ZagRequestResetAsync = extern struct {
+    session: u64,
+    field: [400]bool,
+    b2b: bool,
+    combo: u32,
+};
+
+pub const ZagResponseResetAsync = extern struct {};
+
+pub const ZagRequestAddNextPieceAsync = extern struct {
+    session: u64,
+    piece: ZagPiece,
+};
+
+pub const ZagResponseAddNextPieceAsync = extern struct {};
+
+pub const ZagRequestStartNextMove = extern struct {
+    session: u64,
+    incoming: u32,
+};
+
+pub const ZagResponseStartNextMove = extern struct {};
+
+pub const ZagRequestPollNextMove = extern struct {
+    session: u64,
+};
+
+pub const ZagResponsePollNextMove = extern struct {
+    status: ZagSessionPollStatus,
+    move: ZagMove,
+    plan_array: [*]ZagPlanPlacement,
+    plan_length: u32,
+};
+
+pub const ZagRequestJoinNextMove = extern struct {
+    session: u64,
+};
+
+pub const ZagResponseJoinNextMove = extern struct {
+    status: ZagSessionPollStatus,
+    move: ZagMove,
+    plan_array: [*]ZagPlanPlacement,
+    plan_length: u32,
+};
+
+pub const ZagRequestDefaultOptions = extern struct {};
+
+pub const ZagResponseDefaultOptions = extern struct {
+    options: ZagOptions,
+};
+
+pub const ZagRequestDefaultWeights = extern struct {};
+
+pub const ZagResponseDefaultWeights = extern struct {
+    weights: ZagWeights,
+};
+
+pub const ZagRequestFastWeights = extern struct {};
+
+pub const ZagResponseFastWeights = extern struct {
+    weights: ZagWeights,
+};
+
+pub const ZagMessageTag = extern enum {
+    ZAG_MESSAGE_LAUNCH_ASYNC,
+    ZAG_MESSAGE_LAUNCH_WITH_BOARD_ASYNC,
+    ZAG_MESSAGE_DESTROY_ASYNC,
+    ZAG_MESSAGE_RESET_ASYNC,
+    ZAG_MESSAGE_ADD_NEXT_PIECE_ASYNC,
+    ZAG_MESSAGE_START_NEXT_MOVE,
+    ZAG_MESSAGE_POLL_NEXT_MOVE,
+    ZAG_MESSAGE_JOIN_NEXT_MOVE,
+    ZAG_MESSAGE_DEFAULT_OPTIONS,
+    ZAG_MESSAGE_DEFAULT_WEIGHTS,
+    ZAG_MESSAGE_FAST_WEIGHTS,
+};
+
+pub const ZagRequestUnion = extern union {
+    launch_async: ZagRequestLaunchAsync,
+    launch_with_board_async: ZagRequestLaunchWithBoardAsync,
+    destroy_async: ZagRequestDestroyAsync,
+    reset_async: ZagRequestResetAsync,
+    add_next_piece_async: ZagRequestAddNextPieceAsync,
+    start_next_move: ZagRequestStartNextMove,
+    poll_next_move: ZagRequestPollNextMove,
+    join_next_move: ZagRequestJoinNextMove,
+    default_options: ZagRequestDefaultOptions,
+    default_weights: ZagRequestDefaultWeights,
+    fast_weights: ZagRequestFastWeights,
+};
+
+pub const ZagRequest = extern struct {
+    tag: ZagMessageTag,
+    as: ZagRequestUnion,
+};
+
+pub const ZagResponseUnion = extern union {
+    launch_async: ZagResponseLaunchAsync,
+    launch_with_board_async: ZagResponseLaunchWithBoardAsync,
+    destroy_async: ZagResponseDestroyAsync,
+    reset_async: ZagResponseResetAsync,
+    add_next_piece_async: ZagResponseAddNextPieceAsync,
+    start_next_move: ZagResponseStartNextMove,
+    poll_next_move: ZagResponsePollNextMove,
+    join_next_move: ZagResponseJoinNextMove,
+    default_options: ZagResponseDefaultOptions,
+    default_weights: ZagResponseDefaultWeights,
+    fast_weights: ZagResponseFastWeights,
+};
+
+pub const ZagResponse = extern struct {
+    tag: ZagMessageTag,
+    as: ZagResponseUnion,
+};

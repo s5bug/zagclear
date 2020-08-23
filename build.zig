@@ -34,6 +34,8 @@ pub fn build(b: *Builder) void {
     remote.setTarget(remote_target);
     remote.setBuildMode(mode);
 
+    remote.linkLibC();
+
     remote.emit_h = true;
     remote.force_pic = true;
     remote.strip = true;
