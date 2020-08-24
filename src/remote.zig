@@ -20,24 +20,24 @@ export fn zag_marshall_free(marshall: *s.ZagMarshall) void {
     alloc.destroy(marshall);
 }
 
-export fn zag_request_put(marshall: *s.ZagMarshall, req: *c.ZagRequest, data: *[*]u8, size: *usize) c.ZagResult {
-    const result = marshall.serialize(z.requestToZ(req)) catch return c.ZagResult.ZAG_RESULT_OUT_OF_MEMORY; // TODO proper result handling
+export fn zag_request_put(marshall: *s.ZagMarshall, req: *const c.ZagRequest, data: *[*]u8, size: *usize) c.ZagResult {
+    const zreq = z.requestToZ(req);
+    const result = marshall.serialize(&zreq) catch return c.ZagResult.ZAG_RESULT_OUT_OF_MEMORY; // TODO proper result handling
     data.* = result.ptr;
     size.* = result.len;
     return c.ZagResult.ZAG_RESULT_SUCCESS;
 }
 
-export fn zag_request_free(marshall: *s.ZagMarshall, data: [*]u8, size: usize) void {
+export fn zag_request_free(marshall: *s.ZagMarshall, data: [*]const u8, size: usize) void {
     marshall.free_serialized(data[0..size]);
 }
 
-export fn zag_response_get(marshall: *s.ZagMarshall, resp: *c.ZagResponse, data: [*]u8, size: usize) c.ZagResult {
+export fn zag_response_get(marshall: *s.ZagMarshall, resp: *c.ZagResponse, data: [*]const u8, size: usize) c.ZagResult {
     const result = marshall.deserialize(z.ZagResponse, data[0..size]) catch return c.ZagResult.ZAG_RESULT_OUT_OF_MEMORY; // TODO proper result handling
     resp.* = z.responseToC(result);
-    marshall.free_deserialized(result);
     return c.ZagResult.ZAG_RESULT_SUCCESS;
 }
 
 export fn zag_response_free(marshall: *s.ZagMarshall, resp: *c.ZagResponse) void {
-    marshall.free_deserialized(resp);
+    marshall.free_deserialized(@ptrCast(*const z.ZagResponse, @alignCast(8, resp.data)));
 }

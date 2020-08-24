@@ -14,7 +14,7 @@ pub const ZagRequest = union(c.ZagMessageTag) {
     ZAG_MESSAGE_FAST_WEIGHTS: c.ZagRequestFastWeights,
 };
 
-pub fn requestToZ(request: *c.ZagRequest) ZagRequest {
+pub fn requestToZ(request: *const c.ZagRequest) ZagRequest {
     return switch (request.tag) {
         .ZAG_MESSAGE_LAUNCH_ASYNC => ZagRequest{
             .ZAG_MESSAGE_LAUNCH_ASYNC = request.as.launch_async,
@@ -49,9 +49,10 @@ pub const ZagResponse = union(c.ZagMessageTag) {
     ZAG_MESSAGE_FAST_WEIGHTS: c.ZagResponseFastWeights,
 };
 
-pub fn responseToC(response: *ZagResponse) c.ZagResponse {
+pub fn responseToC(response: *const ZagResponse) c.ZagResponse {
     return switch (response.*) {
         .ZAG_MESSAGE_LAUNCH_ASYNC => |resp| c.ZagResponse{
+            .data = @ptrCast(*const c_void, response),
             .tag = .ZAG_MESSAGE_LAUNCH_ASYNC,
             .as = .{
                 .launch_async = resp,

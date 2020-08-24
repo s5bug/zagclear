@@ -15,7 +15,7 @@ pub const ZagMarshall = struct {
         self.arena.deinit();
     }
 
-    pub fn deserialize(self: *Self, comptime T: type, data: []u8) std.mem.Allocator.Error!*T {
+    pub fn deserialize(self: *Self, comptime T: type, data: []const u8) std.mem.Allocator.Error!*T {
         return std.mem.Allocator.Error.OutOfMemory;
     }
 
@@ -26,10 +26,38 @@ pub const ZagMarshall = struct {
     }
 
     pub fn serialize(self: *Self, ptr: anytype) std.mem.Allocator.Error![]u8 {
-        return std.mem.Allocator.Error.OutOfMemory;
+        var arr = std.ArrayList(u8).init(&self.arena.allocator);
+        defer arr.deinit();
+
+        const P = @TypeOf(ptr);
+        try self.serializeP(P, ptr, &arr);
+
+        return arr.toOwnedSlice();
     }
 
-    pub fn free_serialized(self: *Self, data: []u8) void {
+    fn serializeP(self: *Self, comptime P: type, p: P, arr: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
+        comptime std.debug.assert(std.meta.trait.isSingleItemPtr(P));
+
+        const C = comptime std.meta.Child(P);
+        try self.serializeC(C, p, arr);
+    }
+
+    fn serializeC(self: *Self, comptime C: type, p: *const C, arr: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
+        const child_type_id = @typeInfo(C);
+
+        switch (child_type_id) {
+            .Void => {},
+            .Bool => arr.append(if(p.*) 1 else 0),
+            .Float, .Int => @compileError("not implemented"),
+            .Struct => @compileError("not implementend"),
+            .Union => @compileError("not implemented"),
+            .Optional => @compileError("not implemented"),
+            .Enum => @compileError("not implemented"),
+            else => @compileError("not implementend"),
+        }
+    }
+
+    pub fn free_serialized(self: *Self, data: []const u8) void {
         self.arena.allocator.free(data);
     }
 };

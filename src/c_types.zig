@@ -177,7 +177,7 @@ pub const ZagRequestPollNextMove = extern struct {
 pub const ZagResponsePollNextMove = extern struct {
     status: ZagSessionPollStatus,
     move: ZagMove,
-    plan_array: [*]ZagPlanPlacement,
+    plan_array: [*]const ZagPlanPlacement,
     plan_length: u32,
 };
 
@@ -188,7 +188,7 @@ pub const ZagRequestJoinNextMove = extern struct {
 pub const ZagResponseJoinNextMove = extern struct {
     status: ZagSessionPollStatus,
     move: ZagMove,
-    plan_array: [*]ZagPlanPlacement,
+    plan_array: [*]const ZagPlanPlacement,
     plan_length: u32,
 };
 
@@ -258,6 +258,7 @@ pub const ZagResponseUnion = extern union {
 };
 
 pub const ZagResponse = extern struct {
+    data: *const c_void,
     tag: ZagMessageTag,
     as: ZagResponseUnion,
 };
