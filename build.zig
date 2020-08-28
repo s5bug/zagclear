@@ -22,6 +22,8 @@ pub fn build(b: *Builder) void {
     host.setTarget(host_target);
     host.setBuildMode(mode);
 
+    host.addIncludeDir("cold-clear/c-api");
+
     host.install();
 
     const run_cmd = host.run();

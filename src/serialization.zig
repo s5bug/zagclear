@@ -101,8 +101,7 @@ pub const ZagMarshall = struct {
     }
 
     fn deserializeI(self: *Self, comptime T: type, reader: std.io.FixedBufferStream([]const u8).Reader) Error!T {
-        var deserializer = std.io.Deserializer(std.builtin.Endian.Little, std.io.Packing.Byte, std.io.FixedBufferStream([]const u8).Reader).init(reader);
-        return try deserializer.deserialize(T);
+        return try reader.readInt(T, std.builtin.Endian.Little);
     }
 
     pub fn free_deserialized(self: *Self, ptr: anytype) void {

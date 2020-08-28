@@ -89,6 +89,7 @@ pub const ZagWeights = extern struct {
     back_to_back: i32,
     bumpiness: i32,
     bumpiness_sq: i32,
+    row_transitions: i32,
     height: i32,
     top_half: i32,
     top_quarter: i32,
@@ -118,6 +119,8 @@ pub const ZagWeights = extern struct {
     move_time: i32,
     wasted_time: i32,
     use_bag: bool,
+    timed_jeopardy: bool,
+    stack_pc_damage: bool,
 };
 
 pub const ZagRequestLaunchAsync = extern struct {

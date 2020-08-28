@@ -7,7 +7,9 @@ Clear itself, but can communicate with Rust-supported or stronger devices.
 
 ## Building
 
-To build, you will want to call
+First, you'll want to build `cold-clear`. _TODO: how_
+
+To build the Zig project, you will want to call
 `zig build -Drelease-fast=true -Dhost-target=<host> -Dremote-target=<remote>`
 where `<host>` and `<remote>` are LLVM triples. For example, if compiling on
 Linux, and the intended host is 64-bit Windows, and the intended remote is
