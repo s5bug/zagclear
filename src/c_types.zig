@@ -2,6 +2,8 @@ pub const ZagResult = extern enum {
     ZAG_RESULT_SUCCESS,
     ZAG_RESULT_INVALID_SESSION,
     ZAG_RESULT_OUT_OF_MEMORY,
+    ZAG_RESULT_INVALID_ENUM_TAG,
+    ZAG_RESULT_END_OF_STREAM,
 };
 
 pub const ZagPiece = extern enum {
