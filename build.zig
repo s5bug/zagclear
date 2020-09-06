@@ -12,17 +12,38 @@ pub fn build(b: *Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const host_target_opt = b.option([]const u8, "host-target", "The CPU architecture, OS, and ABI to build for on the Host");
+    const host_target_opt = b.option([]const u8, "target-host", "The CPU architecture, OS, and ABI to build for on the Host");
     const host_target = parse_target_opt(target, host_target_opt);
 
-    const remote_target_opt = b.option([]const u8, "remote-target", "The CPU architecture, OS, and ABI to build for on the Remote");
+    const remote_target_opt = b.option([]const u8, "target-remote", "The CPU architecture, OS, and ABI to build for on the Remote");
     const remote_target = parse_target_opt(target, remote_target_opt);
 
     const host = b.addExecutable("zagclear_host", "src/host.zig");
     host.setTarget(host_target);
     host.setBuildMode(mode);
 
-    host.addIncludeDir("cold-clear/c-api");
+    host.addIncludeDir("include");
+
+    const target_triple_str = host_target.linuxTriple(b.allocator) catch |err| {
+        std.debug.warn("{} error while trying to stringify the target triple", .{err});
+        std.os.exit(1);
+    };
+    const lib_dir = std.fs.path.join(b.allocator, &[_][]const u8{ "lib", target_triple_str }) catch |err| {
+        std.debug.warn("{} error while trying to render library path", .{err});
+        std.os.exit(1);
+    };
+    host.addLibPath(lib_dir);
+
+    host.linkLibC();
+    host.linkSystemLibrary("usb-1.0");
+    host.linkSystemLibrary("cold_clear");
+
+    if (host_target.getOs().tag == .linux) {
+        host.linkSystemLibraryPkgConfigOnly("libudev") catch |err| {
+            std.debug.warn("{} error while trying to find udev via pkg-config", .{err});
+            std.os.exit(1);
+        };
+    }
 
     host.install();
 

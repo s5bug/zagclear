@@ -5,22 +5,149 @@ const z = @import("z_types.zig");
 
 const s = @import("serialization.zig");
 
-pub fn main() anyerror!void {
-    if (std.os.argv.len == 2) {
-        const fname = std.os.argv[1];
-        const fnames = std.mem.span(fname);
-        const file = try std.fs.cwd().openFile(fnames, .{ .read = true });
-        defer file.close();
+const cc = @cImport({
+    @cInclude("coldclear.h");
+});
 
-        var bytes: []u8 = try file.readAllAlloc(std.heap.page_allocator, (try file.stat()).size, 0xFFFFFFFF);
-        defer std.heap.page_allocator.free(bytes);
+const usb = @import("libusb.zig");
 
-        var marshall = s.ZagMarshall.init(std.heap.page_allocator);
-        defer marshall.deinit();
+pub const log_level: std.log.Level = .info;
 
-        var req = try marshall.deserialize(z.ZagRequest, bytes);
-        defer marshall.free_deserialized(req);
+const switch_vendor_id: u16 = 0x057E;
+const switch_product_ids: [2]u16 = [2]u16{ 0x2000, 0x3000 };
 
-        std.debug.warn("{}\n", .{req.*});
-    } else std.debug.warn("./zagclear_host [file]\n", .{});
+const ZagHostError = usb.Error || error{
+    DeviceListInitializationFailure,
+    ActiveDescriptionRetrievalFailure,
+    MissingEndpoints,
+    DuplicateEndpoints,
+};
+
+pub fn main() ZagHostError!void {
+    const alloc = std.heap.c_allocator;
+
+    const ctx = try usb.init();
+    defer usb.deinit(ctx);
+
+    const conn_opt = try init_switch_connections(alloc, ctx);
+    if (conn_opt) |conn| {
+        defer free_switch_connections(alloc, conn);
+    } else {
+        return ZagHostError.DeviceListInitializationFailure;
+    }
+}
+
+const Connection = struct {
+    handle: *usb.DeviceHandle,
+    endpoint_in: u8,
+    endpoint_out: u8,
+};
+
+fn init_switch_connections(alloc: *std.mem.Allocator, ctx: ?*usb.Context) ZagHostError!?[]Connection {
+    const device_list_opt = try usb.init_device_list(ctx);
+    if (device_list_opt) |device_list| {
+        defer usb.deinit_device_list(device_list, true);
+
+        var device_array = std.ArrayList(Connection).init(alloc);
+        for (device_list) |device| {
+            const descriptor = try usb.get_device_descriptor(device);
+            const correct_vendor_id = descriptor.idVendor == switch_vendor_id;
+            const correct_product_id = exists_any(u16, switch_product_ids.len, descriptor.idProduct, switch_product_ids);
+            if (correct_vendor_id and correct_product_id) {
+                var handle_opt = try usb.open_device_handle(device);
+                if (handle_opt) |handle| {
+                    try usb.set_auto_detach_kernel_driver(handle, true);
+                    const new_connection_opt = connect(device, handle) catch |err| {
+                        usb.close_device_handle(handle);
+                        return err;
+                    };
+                    if (new_connection_opt) |new_connection| {
+                        try device_array.append(new_connection);
+                    } else {
+                        std.log.warn("Failed to initialize connection for matching Nintendo Switch device", .{});
+                    }
+                } else {
+                    std.log.warn("Could not open handle for device {X:04} {X:04}", .{ descriptor.idVendor, descriptor.idProduct });
+                }
+            }
+        }
+
+        return device_array.toOwnedSlice();
+    } else {
+        return null;
+    }
+}
+
+fn free_switch_connections(alloc: *std.mem.Allocator, conns: []Connection) void {
+    for (conns) |conn| {
+        usb.close_device_handle(conn.handle);
+    }
+    alloc.free(conns);
+}
+
+fn connect(device: *usb.Device, handle: *usb.DeviceHandle) ZagHostError!?Connection {
+    try usb.set_device_handle_configuration(handle, 1);
+
+    const descriptor_opt = try usb.get_device_active_config_descriptor(device);
+    if (descriptor_opt) |descriptor| {
+        const interfaces = descriptor.interface[0..descriptor.bNumInterfaces];
+
+        var endpoint_in: ?u8 = null;
+        var endpoint_out: ?u8 = null;
+
+        for (interfaces) |interface| {
+            const interface_descriptors = interface.altsetting[0..@intCast(usize, interface.num_altsetting)];
+
+            for (interface_descriptors) |interface_descriptor| {
+                const endpoints = interface_descriptor.endpoint[0..interface_descriptor.bNumEndpoints];
+
+                for (endpoints) |endpoint| {
+                    const transfer_type = @intToEnum(usb.TransferType, endpoint.bmAttributes & 0b00000011);
+                    if (transfer_type == .LIBUSB_TRANSFER_TYPE_BULK) {
+                        const direction = @intToEnum(usb.EndpointDirection, endpoint.bEndpointAddress & 0b10000000);
+
+                        switch (direction) {
+                            .LIBUSB_ENDPOINT_IN => {
+                                if (endpoint_in == null) {
+                                    endpoint_in = endpoint.bEndpointAddress;
+                                } else {
+                                    return ZagHostError.DuplicateEndpoints;
+                                }
+                            },
+                            .LIBUSB_ENDPOINT_OUT => {
+                                if (endpoint_out == null) {
+                                    endpoint_out = endpoint.bEndpointAddress;
+                                } else {
+                                    return ZagHostError.DuplicateEndpoints;
+                                }
+                            },
+                            else => unreachable,
+                        }
+                    }
+                }
+            }
+        }
+
+        if (endpoint_in == null or endpoint_out == null) {
+            return ZagHostError.MissingEndpoints;
+        } else {
+            return Connection{
+                .handle = handle,
+                .endpoint_in = endpoint_in.?,
+                .endpoint_out = endpoint_out.?,
+            };
+        }
+    } else {
+        return ZagHostError.ActiveDescriptionRetrievalFailure;
+    }
+}
+
+fn exists_any(comptime T: type, comptime i: usize, target: T, array: [i]T) bool {
+    var found = false;
+    var idx: usize = 0;
+    while (!found and idx < i) {
+        if (std.meta.eql(target, array[idx])) found = true;
+        idx += 1;
+    }
+    return found;
 }
