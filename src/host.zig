@@ -14,7 +14,7 @@ const usb = @import("libusb.zig");
 pub const log_level: std.log.Level = .info;
 
 const switch_vendor_id: u16 = 0x057E;
-const switch_product_ids: [2]u16 = [2]u16{ 0x2000, 0x3000 };
+const switch_product_ids: [1]u16 = [1]u16{ 0x3000 };
 
 const ZagHostError = usb.Error || error{
     DeviceListInitializationFailure,
@@ -29,11 +29,11 @@ pub fn main() ZagHostError!void {
     const ctx = try usb.init();
     defer usb.deinit(ctx);
 
-    const conn_opt = try init_switch_connections(alloc, ctx);
-    if (conn_opt) |conn| {
-        defer free_switch_connections(alloc, conn);
-    } else {
-        return ZagHostError.DeviceListInitializationFailure;
+    const conn = try init_switch_connections(alloc, ctx);
+    defer free_switch_connections(alloc, conn);
+    
+    for(conn) |con| {
+        _ = con.read();
     }
 }
 
@@ -41,14 +41,23 @@ const Connection = struct {
     handle: *usb.DeviceHandle,
     endpoint_in: u8,
     endpoint_out: u8,
+
+    pub fn read(self: @This()) z.ZagRequest {
+        std.debug.print("hi", .{});
+        const length = await usb.read(std.heap.c_allocator, self.handle, self.endpoint_in, 0xFFFFFFFF, 8);
+        std.debug.print("{}", .{length});
+
+        unreachable;
+    }
 };
 
-fn init_switch_connections(alloc: *std.mem.Allocator, ctx: ?*usb.Context) ZagHostError!?[]Connection {
+fn init_switch_connections(alloc: *std.mem.Allocator, ctx: ?*usb.Context) ZagHostError![]Connection {
+    var device_array = std.ArrayList(Connection).init(alloc);
+    
     const device_list_opt = try usb.init_device_list(ctx);
     if (device_list_opt) |device_list| {
         defer usb.deinit_device_list(device_list, true);
 
-        var device_array = std.ArrayList(Connection).init(alloc);
         for (device_list) |device| {
             const descriptor = try usb.get_device_descriptor(device);
             const correct_vendor_id = descriptor.idVendor == switch_vendor_id;
@@ -71,11 +80,9 @@ fn init_switch_connections(alloc: *std.mem.Allocator, ctx: ?*usb.Context) ZagHos
                 }
             }
         }
-
-        return device_array.toOwnedSlice();
-    } else {
-        return null;
     }
+
+    return device_array.toOwnedSlice();
 }
 
 fn free_switch_connections(alloc: *std.mem.Allocator, conns: []Connection) void {
