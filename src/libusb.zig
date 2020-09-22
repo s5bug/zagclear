@@ -1,8 +1,11 @@
 const std = @import("std");
 
-const usb = @cImport({
-    @cInclude("libusb-1.0/libusb.h");
-});
+//TODO
+//const usb = @cImport({
+//    @cInclude("libusb-1.0/libusb.h");
+//});
+
+const usb = @import("libusb-h.zig");
 
 pub const ConfigDescriptor = usb.libusb_config_descriptor;
 pub const Context = usb.libusb_context;
@@ -104,47 +107,55 @@ pub fn get_device_active_config_descriptor(device: *Device) Error!?*ConfigDescri
 }
 
 pub fn init_transfer(packets: u32) *Transfer {
-    return usb.libusb_alloc_transfer(packets);
+    return usb.libusb_alloc_transfer(@intCast(c_int, packets));
 }
 
-pub fn read(alloc: *std.mem.Allocator, handle: *DeviceHandle, endpoint: u8, timeout: u32, length: u32) anyframe->[]u8 {
-    const slice = alloc.alloc(u8, length);
+pub fn deinit_transfer(transfer: *Transfer) void {
+    return usb.libusb_free_transfer(transfer);
+}
+
+pub fn read(alloc: *std.mem.Allocator, handle: *DeviceHandle, endpoint: u8, timeout: u32, length: u32) Error![]u8 {
+    const slice = try alloc.alloc(u8, length);
 
     const Impl = struct {
         frame: anyframe,
         actual_length: u32,
 
-        fn callback(transfer: *Transfer) void {
-            const self = @ptrCast(*const Impl, transfer.user_data);
-            self.actual_length = transfer.actual_length;
+        const Self = @This();
+
+        fn callback(transfer_opt: ?*Transfer) callconv(.C) void {
+            const transfer = transfer_opt.?;
+            const user_data: *Self = @ptrCast(*Self, @alignCast(@alignOf(Self), transfer.user_data));
+            const self = user_data;
+            self.actual_length = @intCast(u32, transfer.actual_length);
             resume self.frame;
         }
     };
 
-    const impl = Impl {
+    var impl = Impl {
         .frame = @frame(),
         .actual_length = 0,
     };
 
-    const transfer = init_transfer(0);
+    const transfer: *Transfer = init_transfer(0);
     defer deinit_transfer(transfer);
 
-    transfer.*.dev_handle = handle;
-    transfer.*.endpoint = endpoint;
-    transfer.*.timeout = timeout;
-    transfer.*.length = length;
-    transfer.*.buffer = slice;
+    transfer.dev_handle = handle;
+    transfer.endpoint = endpoint;
+    transfer.timeout = timeout;
+    transfer.length = @intCast(c_int, length);
+    transfer.buffer = slice.ptr;
 
-    transfer.*.callback = Impl.callback;
-    transfer.*.user_data = @ptrCast(*c_void, &impl);
+    transfer.callback = Impl.callback;
+    transfer.user_data = @ptrCast(*c_void, &impl);
 
-    usb.libusb_submit_transfer(transfer);
+    try libusb_error_to_zig(@intToEnum(usb.libusb_error, usb.libusb_submit_transfer(transfer)));
 
     suspend;
 
     const new_length = impl.actual_length;
     
-    alloc.shrink(slice, new_length);
+    const new_slice = alloc.shrink(slice, new_length);
 
-    return slice[0..new_length];
+    return new_slice[0..new_length];
 }

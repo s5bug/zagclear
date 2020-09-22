@@ -61,7 +61,7 @@ pub const ZagMarshall = struct {
                     const tag: ETagType = try self.deserializeI(ETagType, reader);
 
                     inline for (udata.fields) |field_info| {
-                        if (field_info.enum_field.?.value == tag) {
+                        if (@enumToInt(@field(TagType, field_info.name)) == tag) {
                             const name = field_info.name;
                             const FieldType = field_info.field_type;
                             p.* = @unionInit(T, name, undefined);
@@ -149,7 +149,7 @@ pub const ZagMarshall = struct {
                     try self.serializeI(ETagType, tag, arr);
 
                     inline for (udata.fields) |field_info| {
-                        if (field_info.enum_field.?.value == tag) {
+                        if (@enumToInt(@field(TagType, field_info.name)) == tag) {
                             const name = field_info.name;
                             const FieldType = field_info.field_type;
                             try self.serializeP(*const FieldType, &@field(p, name), arr);

@@ -24,6 +24,10 @@ const ZagHostError = usb.Error || error{
 };
 
 pub fn main() ZagHostError!void {
+    resume (async run());
+}
+
+pub fn run() ZagHostError!void {
     const alloc = std.heap.c_allocator;
 
     const ctx = try usb.init();
@@ -31,9 +35,12 @@ pub fn main() ZagHostError!void {
 
     const conn = try init_switch_connections(alloc, ctx);
     defer free_switch_connections(alloc, conn);
-    
+
     for(conn) |con| {
-        _ = con.read();
+        var req_frame = async con.read();
+        resume &req_frame;
+        const req_res: usb.Error!z.ZagRequest = await &req_frame;
+        const req = try req_res;
     }
 }
 
@@ -42,10 +49,12 @@ const Connection = struct {
     endpoint_in: u8,
     endpoint_out: u8,
 
-    pub fn read(self: @This()) z.ZagRequest {
+    pub fn read(self: @This()) usb.Error!z.ZagRequest {
         std.debug.print("hi", .{});
-        const length = await usb.read(std.heap.c_allocator, self.handle, self.endpoint_in, 0xFFFFFFFF, 8);
-        std.debug.print("{}", .{length});
+        var read_frame = async usb.read(std.heap.c_allocator, self.handle, self.endpoint_in, 0xFFFFFFFF, 8);
+        const data_res: usb.Error![]u8 = await &read_frame;
+        const data = try data_res;
+        std.debug.print("{X}", .{data});
 
         unreachable;
     }
