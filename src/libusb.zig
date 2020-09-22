@@ -10,7 +10,6 @@ pub const Device = usb.libusb_device;
 pub const DeviceDescriptor = usb.libusb_device_descriptor;
 pub const DeviceHandle = usb.libusb_device_handle;
 pub const EndpointDirection = usb.libusb_endpoint_direction;
-pub const Transfer = usb.libusb_transfer;
 pub const TransferType = usb.libusb_transfer_type;
 
 pub const Error = error{
@@ -101,50 +100,4 @@ pub fn get_device_active_config_descriptor(device: *Device) Error!?*ConfigDescri
     var descriptor: ?*ConfigDescriptor = null;
     try libusb_error_to_zig(@intToEnum(usb.libusb_error, usb.libusb_get_active_config_descriptor(device, &descriptor)));
     return descriptor;
-}
-
-pub fn init_transfer(packets: u32) *Transfer {
-    return usb.libusb_alloc_transfer(packets);
-}
-
-pub fn read(alloc: *std.mem.Allocator, handle: *DeviceHandle, endpoint: u8, timeout: u32, length: u32) anyframe->[]u8 {
-    const slice = alloc.alloc(u8, length);
-
-    const Impl = struct {
-        frame: anyframe,
-        actual_length: u32,
-
-        fn callback(transfer: *Transfer) void {
-            const self = @ptrCast(*const Impl, transfer.user_data);
-            self.actual_length = transfer.actual_length;
-            resume self.frame;
-        }
-    };
-
-    const impl = Impl {
-        .frame = @frame(),
-        .actual_length = 0,
-    };
-
-    const transfer = init_transfer(0);
-    defer deinit_transfer(transfer);
-
-    transfer.*.dev_handle = handle;
-    transfer.*.endpoint = endpoint;
-    transfer.*.timeout = timeout;
-    transfer.*.length = length;
-    transfer.*.buffer = slice;
-
-    transfer.*.callback = Impl.callback;
-    transfer.*.user_data = @ptrCast(*c_void, &impl);
-
-    usb.libusb_submit_transfer(transfer);
-
-    suspend;
-
-    const new_length = impl.actual_length;
-    
-    alloc.shrink(slice, new_length);
-
-    return slice[0..new_length];
 }

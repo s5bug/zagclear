@@ -34,8 +34,6 @@ pub fn build(b: *Builder) void {
     };
     host.addLibPath(lib_dir);
 
-    host.rdynamic = true;
-
     host.linkLibC();
     host.linkSystemLibrary("usb-1.0");
     host.linkSystemLibrary("cold_clear");
