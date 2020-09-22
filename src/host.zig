@@ -50,11 +50,18 @@ const Connection = struct {
     endpoint_out: u8,
 
     pub fn read(self: @This()) usb.Error!z.ZagRequest {
-        std.debug.print("hi", .{});
-        var read_frame = async usb.read(std.heap.c_allocator, self.handle, self.endpoint_in, 0xFFFFFFFF, 8);
-        const data_res: usb.Error![]u8 = await &read_frame;
+        std.debug.print("hi\n", .{});
+
+        var read_size_frame = async usb.read(std.heap.c_allocator, self.handle, self.endpoint_in, 0xFFFFFFFF, 4);
+        const size_res: usb.Error![]u8 = await &read_size_frame;
+        const size = try size_res;
+        const size_num = std.mem.readIntLittle(u32, @ptrCast(*const [4]u8, size.ptr));
+        std.debug.print("{}\n", .{size_num});
+
+        var read_data_frame = async usb.read(std.heap.c_allocator, self.handle, self.endpoint_in, 0xFFFFFFFF, size_num);
+        const data_res: usb.Error![]u8 = await &read_data_frame;
         const data = try data_res;
-        std.debug.print("{X}", .{data});
+        std.debug.print("{X}\n", .{data});
 
         unreachable;
     }

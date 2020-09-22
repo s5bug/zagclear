@@ -49,3 +49,7 @@ export fn zag_response_get(marshall: *s.ZagMarshall, resp: *c.ZagResponse, data:
 export fn zag_response_free(marshall: *s.ZagMarshall, resp: *c.ZagResponse) void {
     marshall.free_deserialized(@ptrCast(*const z.ZagResponse, @alignCast(8, resp.data)));
 }
+
+export fn zag_write_size(size: u32, data: *[4]u8) void {
+    std.mem.writeIntLittle(u32, data, size);
+}
