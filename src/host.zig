@@ -36,13 +36,34 @@ pub fn main() ZagHostError!void {
 
     std.log.warn("Hello {}", .{conn.len});
 
+    var clients = std.ArrayList(*Client).init(alloc);
+    defer clients.deinit();
+
     for(conn) |con| {
-        var req_frame = async con.read();
-        resume &req_frame;
-        const req_res: usb.Error!z.ZagRequest = await &req_frame;
-        const req = try req_res;
+        const client = try alloc.create(Client);
+        client.conn = con;
+        client.handle_frame = async client.handle();
+        try clients.append(client);
+    }
+
+    for(clients.items) |cli| {
+        try await cli.handle_frame;
     }
 }
+
+const Client = struct {
+    conn: Connection,
+    handle_frame: @Frame(handle),
+
+    fn handle(self: *Client) ZagHostError!void {
+        while(true) {
+            var req_frame = async self.conn.read();
+            resume &req_frame;
+            const req_res: usb.Error!z.ZagRequest = await &req_frame;
+            const req = try req_res;
+        }
+    }
+};
 
 const Connection = struct {
     handle: *usb.DeviceHandle,
