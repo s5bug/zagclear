@@ -18,9 +18,11 @@ pub fn build(b: *Builder) void {
     const remote_target_opt = b.option([]const u8, "target-remote", "The CPU architecture, OS, and ABI to build for on the Remote");
     const remote_target = parse_target_opt(target, remote_target_opt);
 
-    const host = b.addExecutable("zagclear_host", "src/host.zig");
+    const host = b.addStaticLibrary("zagclear_host", "src/host.zig");
     host.setTarget(host_target);
     host.setBuildMode(mode);
+
+    host.linkLibC();
 
     host.addIncludeDir("include");
 
@@ -35,7 +37,6 @@ pub fn build(b: *Builder) void {
     host.addLibPath(lib_dir);
 
     host.linkLibC();
-    host.linkSystemLibrary("usb-1.0");
     host.linkSystemLibrary("cold_clear");
 
     if (host_target.getOs().tag == .linux) {
