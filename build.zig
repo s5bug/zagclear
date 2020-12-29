@@ -22,8 +22,6 @@ pub fn build(b: *Builder) void {
     host.setTarget(host_target);
     host.setBuildMode(mode);
 
-    host.linkLibC();
-
     host.addIncludeDir("include");
 
     const target_triple_str = host_target.linuxTriple(b.allocator) catch |err| {
@@ -39,20 +37,10 @@ pub fn build(b: *Builder) void {
     host.linkLibC();
     host.linkSystemLibrary("cold_clear");
 
-    if (host_target.getOs().tag == .linux) {
-        host.linkSystemLibraryPkgConfigOnly("libudev") catch |err| {
-            std.debug.warn("{} error while trying to find udev via pkg-config", .{err});
-            std.os.exit(1);
-        };
-    }
+    // host.emit_h = true;
+    host.force_pic = true;
 
     host.install();
-
-    const run_cmd = host.run();
-    run_cmd.step.dependOn(b.getInstallStep());
-
-    const run_step = b.step("run", "Run the Host app");
-    run_step.dependOn(&run_cmd.step);
 
     const remote = b.addStaticLibrary("zagclear_remote", "src/remote.zig");
     remote.setTarget(remote_target);
@@ -60,7 +48,7 @@ pub fn build(b: *Builder) void {
 
     remote.linkLibC();
 
-    remote.emit_h = true;
+    // remote.emit_h = true;
     remote.force_pic = true;
     remote.strip = true;
 

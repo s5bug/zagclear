@@ -170,8 +170,20 @@ pub const ZagMarshall = struct {
                         const length: u64 = @intCast(u64, p.*.len);
                         try self.serializeI(u64, length, arr);
 
+                        const ChildPtrT = @Type(.{
+                            .Pointer = .{
+                                .size = .One,
+                                .is_const = pdata.is_const,
+                                .is_volatile = pdata.is_volatile,
+                                .alignment = pdata.alignment,
+                                .is_allowzero = pdata.is_allowzero,
+                                .child = pdata.child,
+                                .sentinel = null,
+                            }
+                        });
+
                         for (p.*) |*e| {
-                            try self.serializeP(pdata.child, e, arr);
+                            try self.serializeP(ChildPtrT, e, arr);
                         }
                     },
                     else => @compileError("cannot serialize non-singular or non-slice pointer"),
@@ -182,9 +194,9 @@ pub const ZagMarshall = struct {
     }
 
     fn serializeI(self: *Self, comptime T: type, t: T, arr: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
-        var writer = arr.writer();
-        var serializer = std.io.Serializer(std.builtin.Endian.Little, std.io.Packing.Byte, @TypeOf(writer)).init(writer);
-        try serializer.serialize(t);
+        var buf: [(@typeInfo(T).Int.bits + 7) / 8]u8 = undefined;
+        std.mem.writeIntLittle(T, &buf, t);
+        try arr.appendSlice(&buf);
     }
 
     pub fn free_serialized(self: *Self, data: []const u8) void {
